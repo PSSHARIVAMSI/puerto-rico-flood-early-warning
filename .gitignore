@@ -22,9 +22,8 @@ JupyterNotebooks/outputs/
 # Sensitive local config (contains secrets)
 PR Alert Data Sources.xlsx
 
-# Meeting minutes (local only)
+# Local-only meeting working notes
 /docs/meeting_minutes/
-/docs/meetings/
 
 # Internal curation workspace (local only)
 /to_curate_wip/

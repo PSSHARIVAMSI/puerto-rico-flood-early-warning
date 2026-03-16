@@ -20,7 +20,7 @@ This folder is organized by category to keep research, design, planning, and ope
   - Project planning documents, scope notes, and outlines.
 
 - `docs/meetings/`
-  - Meeting minutes and session records.
+  - Publishable meeting minutes and session records approved for repo inclusion.
 
 - `docs/admin/`
   - Administrative and internal proposal documents.
