@@ -1,5 +1,6 @@
 # Environment files
 .env
+.venv/
 
 # OS/editor junk
 .DS_Store
@@ -10,6 +11,11 @@
 # Python cache/build junk
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+run_local_proto.log
+.streamlit_local.pid
 
 # Internal admin documents (local only)
 /docs/intadmin/
