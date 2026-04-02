@@ -122,6 +122,8 @@ try:
     alerts_df = load_view(con, "SELECT * FROM vw_alerts_summary")
     stations_df = load_view(con, "SELECT * FROM vw_station_water_summary")
     source_status_df = load_view(con, "SELECT * FROM vw_baseline_source_status")
+    factor_summary_df = load_view(con, "SELECT * FROM vw_vulnerability_factor_summary")
+    terrain_summary_df = load_view(con, "SELECT * FROM vw_terrain_summary")
     adjustments_df = load_view(con, "SELECT * FROM vw_vulnerability_adjustments")
 
     phase_options = sorted(
@@ -177,6 +179,10 @@ try:
             "priority_index_conf_adj",
             "hazard_combined",
             "vulnerability_score",
+            "poverty_score",
+            "transport_constraint_score",
+            "housing_fragility_score",
+            "income_capacity_score",
             "response_readiness_index",
             "terrain_data_completeness",
             "recommended_actions",
@@ -264,6 +270,55 @@ try:
             adjustment_columns = [column for column in adjustment_columns if column in adjustments_df.columns]
             st.dataframe(
                 adjustments_df[adjustment_columns],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    with st.expander("Vulnerability Factor Breakdown"):
+        if factor_summary_df.empty:
+            st.info("No stage-10 vulnerability factor output is currently loaded into the local DuckDB workbench.")
+        else:
+            factor_columns = [
+                "municipio",
+                "population",
+                "poverty_rate",
+                "no_vehicle_rate",
+                "vacancy_rate",
+                "poverty_score",
+                "transport_constraint_score",
+                "housing_fragility_score",
+                "income_capacity_score",
+                "vulnerability_score_base",
+                "vulnerability_score_adjusted",
+                "resilience_capacity_score",
+            ]
+            factor_columns = [column for column in factor_columns if column in factor_summary_df.columns]
+            st.dataframe(
+                factor_summary_df[factor_columns],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    with st.expander("Terrain Sidecar Review"):
+        if terrain_summary_df.empty:
+            st.info("No terrain summary output is currently loaded into the local DuckDB workbench.")
+        else:
+            terrain_columns = [
+                "municipio_name",
+                "terrain_data_completeness",
+                "terrain_confidence_score",
+                "elevation_mean",
+                "slope_mean",
+                "local_relief",
+                "wetness_proxy",
+                "distance_to_stream_km",
+                "coastal_inundation_flag",
+                "soil_runoff_potential",
+                "land_cover_runoff_modifier",
+            ]
+            terrain_columns = [column for column in terrain_columns if column in terrain_summary_df.columns]
+            st.dataframe(
+                terrain_summary_df[terrain_columns],
                 use_container_width=True,
                 hide_index=True,
             )

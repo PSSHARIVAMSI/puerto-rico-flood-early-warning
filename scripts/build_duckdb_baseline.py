@@ -199,6 +199,51 @@ def transform_terrain_features(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def transform_exposure_vulnerability_features(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = frame.copy()
+    if "municipio_slug" not in frame.columns:
+        if "municipio_key" in frame.columns:
+            frame["municipio_slug"] = frame["municipio_key"].map(slugify)
+        elif "municipio" in frame.columns:
+            frame["municipio_slug"] = frame["municipio"].map(slugify)
+        else:
+            frame["municipio_slug"] = pd.NA
+    return ensure_columns(
+        frame,
+        [
+            "municipio",
+            "municipio_key",
+            "municipio_slug",
+            "latitude",
+            "longitude",
+            "population",
+            "median_income",
+            "poverty_rate",
+            "no_vehicle_rate",
+            "vacancy_rate",
+            "child_under_5_population",
+            "elderly_65_plus_population",
+            "child_rate",
+            "elderly_65_plus_rate",
+            "exposure_score",
+            "vulnerability_score_base",
+            "vulnerability_score_adjusted",
+            "vulnerability_score",
+            "resilience_capacity_score",
+            "poverty_score",
+            "transport_constraint_score",
+            "housing_fragility_score",
+            "income_capacity_score",
+            "score_child_vulnerability",
+            "score_elderly_vulnerability",
+            "score_age_vulnerability",
+            "age_adjustment_points",
+            "age_adjustment_enabled",
+            "adjustment_config_version",
+        ],
+    )
+
+
 def transform_municipio_adjustment_factors(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.copy()
     if "municipio_slug" not in frame.columns:
@@ -345,6 +390,37 @@ EMPTY_SCHEMAS: dict[str, dict[str, str]] = {
         "config_version": "string",
         "run_timestamp_utc": "string",
     },
+    "baseline_exposure_vulnerability_features": {
+        "municipio": "string",
+        "municipio_key": "string",
+        "municipio_slug": "string",
+        "latitude": "float64",
+        "longitude": "float64",
+        "population": "float64",
+        "median_income": "float64",
+        "poverty_rate": "float64",
+        "no_vehicle_rate": "float64",
+        "vacancy_rate": "float64",
+        "child_under_5_population": "float64",
+        "elderly_65_plus_population": "float64",
+        "child_rate": "float64",
+        "elderly_65_plus_rate": "float64",
+        "exposure_score": "float64",
+        "vulnerability_score_base": "float64",
+        "vulnerability_score_adjusted": "float64",
+        "vulnerability_score": "float64",
+        "resilience_capacity_score": "float64",
+        "poverty_score": "float64",
+        "transport_constraint_score": "float64",
+        "housing_fragility_score": "float64",
+        "income_capacity_score": "float64",
+        "score_child_vulnerability": "float64",
+        "score_elderly_vulnerability": "float64",
+        "score_age_vulnerability": "float64",
+        "age_adjustment_points": "float64",
+        "age_adjustment_enabled": "boolean",
+        "adjustment_config_version": "string",
+    },
     "baseline_municipio_adjustment_factors": {
         "municipio": "string",
         "municipio_key": "string",
@@ -447,6 +523,15 @@ BASELINE_SOURCES: list[BaselineSource] = [
         transform=transform_terrain_features,
     ),
     BaselineSource(
+        name="exposure_vulnerability_features",
+        table_name="baseline_exposure_vulnerability_features",
+        description="Stage 10 municipio exposure, vulnerability, and resilience-factor outputs used for factor transparency.",
+        candidates=["JupyterNotebooks/outputs/index_pipeline/10_features/municipio_exposure_vulnerability_features.csv"],
+        file_type="csv",
+        role="load_table",
+        transform=transform_exposure_vulnerability_features,
+    ),
+    BaselineSource(
         name="municipio_adjustment_factors",
         table_name="baseline_municipio_adjustment_factors",
         description="Municipio-level optional adjustment outputs, including age-based overlays, from stage 10.",
@@ -513,6 +598,11 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             mi.response_readiness_index,
             mi.recovery_capacity_index,
             mi.confidence_score,
+            evf.poverty_score,
+            evf.transport_constraint_score,
+            evf.housing_fragility_score,
+            evf.income_capacity_score,
+            evf.resilience_capacity_score,
             maf.vulnerability_score_base,
             maf.vulnerability_score_adjusted,
             maf.score_age_vulnerability,
@@ -534,6 +624,8 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             ON mi.municipio_slug = pa.municipio_slug
         LEFT JOIN baseline_terrain_features AS tf
             ON mi.municipio_slug = tf.municipio_slug
+        LEFT JOIN baseline_exposure_vulnerability_features AS evf
+            ON mi.municipio_slug = evf.municipio_slug
         LEFT JOIN baseline_municipio_adjustment_factors AS maf
             ON mi.municipio_slug = maf.municipio_slug
         """
@@ -597,6 +689,39 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             terrain_confidence_score,
             run_timestamp_utc
         FROM baseline_terrain_features
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE VIEW vw_vulnerability_factor_summary AS
+        SELECT
+            municipio,
+            municipio_key,
+            municipio_slug,
+            population,
+            median_income,
+            poverty_rate,
+            no_vehicle_rate,
+            vacancy_rate,
+            exposure_score,
+            vulnerability_score_base,
+            vulnerability_score_adjusted,
+            vulnerability_score,
+            resilience_capacity_score,
+            poverty_score,
+            transport_constraint_score,
+            housing_fragility_score,
+            income_capacity_score,
+            child_rate,
+            elderly_65_plus_rate,
+            score_child_vulnerability,
+            score_elderly_vulnerability,
+            score_age_vulnerability,
+            age_adjustment_points,
+            age_adjustment_enabled,
+            adjustment_config_version
+        FROM baseline_exposure_vulnerability_features
+        ORDER BY vulnerability_score DESC NULLS LAST, municipio
         """
     )
     con.execute(
