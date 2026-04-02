@@ -113,6 +113,14 @@ For a docs-only breakdown, see `docs/README.md`.
 
 This repository is currently not centered on a formal DuckDB database layer or a deployed Streamlit application. The current MVP remains notebook-first, local-first by default, driven by curated public-data ingest and staged analytics notebooks, and publicly surfaced through the existing GitHub Pages dashboard flow.
 
+### Semester Architecture Decision
+
+- The Spring 2026 implementation path is DuckDB for the local analytical store plus Streamlit for the local/internal workbench layer.
+- The existing GitHub Pages flow remains the official public-facing dashboard surface for this semester.
+- Snowflake, AWS-hosted patterns, and other managed-platform alternatives are intentionally deferred until post-semester scaling discussions so future teams can evaluate them with clearer validation, funding, and operational requirements.
+- For the follow-on platform discussion, see `docs/planning/platform_alternatives/README.md`.
+- For the current issue-collation and closure plan, see `docs/planning/open_issues_resolution_plan_apr_2026.md`.
+
 For the local workbench, the recommended path after cloning is:
 
 ```bash
@@ -156,6 +164,7 @@ This workbench is not:
 - Starter local app: `app/streamlit_app.py`
 - Sample SQL: `sql/duckdb_baseline_queries.sql`
 - Assumptions and open questions: `docs/planning/duckdb_streamlit_baseline_notes.md`
+- The local workbench now surfaces stage-10 vulnerability-factor breakdowns, age-adjustment outputs, and terrain-sidecar review tables so metric definitions can be inspected outside the notebooks.
 
 Current baseline ingestion targets the most stable local curated outputs currently available:
 
