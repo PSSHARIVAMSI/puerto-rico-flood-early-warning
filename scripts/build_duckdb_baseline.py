@@ -199,6 +199,38 @@ def transform_terrain_features(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def transform_municipio_adjustment_factors(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = frame.copy()
+    if "municipio_slug" not in frame.columns:
+        if "municipio_key" in frame.columns:
+            frame["municipio_slug"] = frame["municipio_key"]
+        elif "municipio" in frame.columns:
+            frame["municipio_slug"] = frame["municipio"].map(slugify)
+        else:
+            frame["municipio_slug"] = pd.NA
+    return ensure_columns(
+        frame,
+        [
+            "municipio",
+            "municipio_key",
+            "municipio_slug",
+            "child_under_5_population",
+            "elderly_65_plus_population",
+            "child_rate",
+            "elderly_65_plus_rate",
+            "age_dependency_rate",
+            "score_child_vulnerability",
+            "score_elderly_vulnerability",
+            "score_age_vulnerability",
+            "age_adjustment_points",
+            "age_adjustment_enabled",
+            "vulnerability_score_base",
+            "vulnerability_score_adjusted",
+            "adjustment_config_version",
+        ],
+    )
+
+
 def transform_noaa_station_summary(frame: pd.DataFrame) -> pd.DataFrame:
     return ensure_columns(
         frame.copy(),
@@ -313,6 +345,24 @@ EMPTY_SCHEMAS: dict[str, dict[str, str]] = {
         "config_version": "string",
         "run_timestamp_utc": "string",
     },
+    "baseline_municipio_adjustment_factors": {
+        "municipio": "string",
+        "municipio_key": "string",
+        "municipio_slug": "string",
+        "child_under_5_population": "float64",
+        "elderly_65_plus_population": "float64",
+        "child_rate": "float64",
+        "elderly_65_plus_rate": "float64",
+        "age_dependency_rate": "float64",
+        "score_child_vulnerability": "float64",
+        "score_elderly_vulnerability": "float64",
+        "score_age_vulnerability": "float64",
+        "age_adjustment_points": "float64",
+        "age_adjustment_enabled": "boolean",
+        "vulnerability_score_base": "float64",
+        "vulnerability_score_adjusted": "float64",
+        "adjustment_config_version": "string",
+    },
     "baseline_noaa_station_summary": {
         "station_id": "string",
         "station_name": "string",
@@ -397,6 +447,15 @@ BASELINE_SOURCES: list[BaselineSource] = [
         transform=transform_terrain_features,
     ),
     BaselineSource(
+        name="municipio_adjustment_factors",
+        table_name="baseline_municipio_adjustment_factors",
+        description="Municipio-level optional adjustment outputs, including age-based overlays, from stage 10.",
+        candidates=["JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv"],
+        file_type="csv",
+        role="load_table",
+        transform=transform_municipio_adjustment_factors,
+    ),
+    BaselineSource(
         name="noaa_station_summary",
         table_name="baseline_noaa_station_summary",
         description="Current NOAA station summary outputs for water-level overview screens.",
@@ -454,6 +513,12 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             mi.response_readiness_index,
             mi.recovery_capacity_index,
             mi.confidence_score,
+            maf.vulnerability_score_base,
+            maf.vulnerability_score_adjusted,
+            maf.score_age_vulnerability,
+            maf.age_adjustment_points,
+            maf.age_adjustment_enabled,
+            maf.adjustment_config_version,
             mi.latitude,
             mi.longitude,
             pa.rank AS priority_rank,
@@ -469,6 +534,8 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             ON mi.municipio_slug = pa.municipio_slug
         LEFT JOIN baseline_terrain_features AS tf
             ON mi.municipio_slug = tf.municipio_slug
+        LEFT JOIN baseline_municipio_adjustment_factors AS maf
+            ON mi.municipio_slug = maf.municipio_slug
         """
     )
     con.execute(
@@ -530,6 +597,30 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             terrain_confidence_score,
             run_timestamp_utc
         FROM baseline_terrain_features
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE VIEW vw_vulnerability_adjustments AS
+        SELECT
+            municipio,
+            municipio_key,
+            municipio_slug,
+            child_under_5_population,
+            elderly_65_plus_population,
+            child_rate,
+            elderly_65_plus_rate,
+            age_dependency_rate,
+            score_child_vulnerability,
+            score_elderly_vulnerability,
+            score_age_vulnerability,
+            age_adjustment_points,
+            age_adjustment_enabled,
+            vulnerability_score_base,
+            vulnerability_score_adjusted,
+            adjustment_config_version
+        FROM baseline_municipio_adjustment_factors
+        ORDER BY age_adjustment_points DESC NULLS LAST, municipio
         """
     )
     con.execute(

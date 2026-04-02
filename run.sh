@@ -12,7 +12,7 @@ PID_FILE="${ROOT_DIR}/.streamlit_local.pid"
 DEFAULT_VENV="${ROOT_DIR}/.venv"
 DB_PATH="${ROOT_DIR}/data/local/duckdb/spring2026daen_baseline.duckdb"
 BUILD_SUMMARY_PATH="${ROOT_DIR}/data/local/duckdb/duckdb_baseline_build_summary.json"
-PYTEST_TARGET="${ROOT_DIR}/tests/test_local_prototype_baseline.py"
+PYTEST_TARGET="${ROOT_DIR}/tests"
 STREAMLIT_PORT="${STREAMLIT_PORT:-8501}"
 STREAMLIT_URL="http://127.0.0.1:${STREAMLIT_PORT}"
 MAX_LOG_BYTES=1048576
@@ -154,7 +154,7 @@ ensure_venv() {
 python_import_status() {
   "$(python_bin)" - <<'PY'
 import importlib.util
-mods = ["duckdb", "pandas", "pyarrow", "streamlit", "pytest"]
+mods = ["duckdb", "pandas", "pyarrow", "streamlit", "pytest", "yaml"]
 for mod in mods:
     print(f"{mod}:{1 if importlib.util.find_spec(mod) else 0}")
 PY
@@ -166,7 +166,7 @@ requirements_ready() {
 import importlib.util
 import sys
 
-mods = ["duckdb", "pandas", "pyarrow", "streamlit", "pytest"]
+mods = ["duckdb", "pandas", "pyarrow", "streamlit", "pytest", "yaml"]
 missing = [mod for mod in mods if importlib.util.find_spec(mod) is None]
 if missing:
     print(",".join(missing))
@@ -376,7 +376,7 @@ PY
 run_smoke_tests() {
   log "Running local DuckDB + Streamlit smoke tests"
   ensure_requirements_ready
-  [[ -f "${PYTEST_TARGET}" ]] || die "Pytest target not found at ${PYTEST_TARGET}"
+  [[ -e "${PYTEST_TARGET}" ]] || die "Pytest target not found at ${PYTEST_TARGET}"
   python -m pytest -q "${PYTEST_TARGET}"
   log "Smoke tests passed"
 }

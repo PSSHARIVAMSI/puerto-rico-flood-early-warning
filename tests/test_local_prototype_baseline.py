@@ -144,6 +144,29 @@ def _make_temp_repo(tmp_path: Path) -> Path:
         ],
     )
     _write_csv(
+        repo_root / "JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv",
+        [
+            {
+                "municipio": "San Juan",
+                "municipio_key": "san_juan",
+                "municipio_slug": "san_juan",
+                "child_under_5_population": 1200.0,
+                "elderly_65_plus_population": 3400.0,
+                "child_rate": 0.08,
+                "elderly_65_plus_rate": 0.22,
+                "age_dependency_rate": 0.30,
+                "score_child_vulnerability": 55.0,
+                "score_elderly_vulnerability": 78.0,
+                "score_age_vulnerability": 68.8,
+                "age_adjustment_points": 8.3,
+                "age_adjustment_enabled": True,
+                "vulnerability_score_base": 58.8,
+                "vulnerability_score_adjusted": 67.1,
+                "adjustment_config_version": "1.0",
+            }
+        ],
+    )
+    _write_csv(
         repo_root / "outputs/noaa_pr/noaa_pr_station_summary.csv",
         [
             {
@@ -191,17 +214,19 @@ def test_build_duckdb_baseline_from_curated_outputs(tmp_path: Path) -> None:
         "flood_station_latest",
         "nws_alerts_enriched",
         "terrain_features",
+        "municipio_adjustment_factors",
         "noaa_station_summary",
     }
 
     con = duckdb.connect(str(db_path), read_only=True)
     assert con.execute("SELECT COUNT(*) FROM vw_municipio_risk_summary").fetchone()[0] == 1
     top_row = con.execute(
-        "SELECT municipio, recommended_actions, terrain_data_completeness FROM vw_municipio_risk_summary"
+        "SELECT municipio, recommended_actions, terrain_data_completeness, age_adjustment_points FROM vw_municipio_risk_summary"
     ).fetchone()
     assert top_row[0] == "San Juan"
     assert "Increase responder readiness" in top_row[1]
     assert float(top_row[2]) == 100.0
+    assert float(top_row[3]) == 8.3
     con.close()
 
 

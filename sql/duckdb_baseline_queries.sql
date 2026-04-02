@@ -53,3 +53,13 @@ SELECT
     area_desc
 FROM vw_alerts_summary
 ORDER BY alert_score DESC NULLS LAST, sent DESC NULLS LAST;
+
+-- 6. Optional age-adjustment overlay review.
+SELECT
+    municipio,
+    score_age_vulnerability,
+    age_adjustment_points,
+    vulnerability_score_base,
+    vulnerability_score_adjusted
+FROM vw_vulnerability_adjustments
+ORDER BY age_adjustment_points DESC NULLS LAST, municipio;

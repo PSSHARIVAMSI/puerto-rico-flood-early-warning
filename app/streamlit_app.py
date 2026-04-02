@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import signal
+import sys
 import threading
 import time
 from pathlib import Path
@@ -9,6 +10,16 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 import streamlit as st
+
+APP_DIR = Path(__file__).resolve().parent
+EARLY_REPO_ROOT = APP_DIR.parent
+if str(EARLY_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(EARLY_REPO_ROOT))
+
+from scripts.factors.social_adjustments import (
+    build_adjustment_factor_reference,
+    load_social_adjustment_spec,
+)
 
 
 def find_repo_root(start: Path | None = None) -> Path:
@@ -62,6 +73,8 @@ DEFAULT_DB_PATH = Path(
         str(REPO_ROOT / "data" / "local" / "duckdb" / "spring2026daen_baseline.duckdb"),
     )
 ).expanduser()
+ADJUSTMENT_SPEC = load_social_adjustment_spec(REPO_ROOT)
+ADJUSTMENT_REFERENCE_DF = build_adjustment_factor_reference(ADJUSTMENT_SPEC)
 
 st.set_page_config(page_title="PR Hazard and Readiness Analysis Workbench", layout="wide")
 
@@ -109,6 +122,7 @@ try:
     alerts_df = load_view(con, "SELECT * FROM vw_alerts_summary")
     stations_df = load_view(con, "SELECT * FROM vw_station_water_summary")
     source_status_df = load_view(con, "SELECT * FROM vw_baseline_source_status")
+    adjustments_df = load_view(con, "SELECT * FROM vw_vulnerability_adjustments")
 
     phase_options = sorted(
         [value for value in municipio_df.get("phase", pd.Series(dtype="string")).dropna().unique().tolist()]
@@ -132,7 +146,7 @@ try:
             filtered_municipios["municipio"].fillna("").str.contains(municipio_search.strip(), case=False)
         ]
 
-    metric_cols = st.columns(4)
+    metric_cols = st.columns(5)
     metric_cols[0].metric("Filtered municipios", f"{len(filtered_municipios):,}")
     metric_cols[1].metric(
         "Mean adj. priority",
@@ -140,6 +154,10 @@ try:
     )
     metric_cols[2].metric("Alerts loaded", f"{len(alerts_df):,}")
     metric_cols[3].metric("Stations loaded", f"{len(stations_df):,}")
+    metric_cols[4].metric(
+        "Mean age adj. points",
+        f"{adjustments_df['age_adjustment_points'].mean():.1f}" if not adjustments_df.empty else "n/a",
+    )
 
     top_municipio = (
         filtered_municipios.sort_values("priority_index_conf_adj", ascending=False).head(1)["municipio"].iloc[0]
@@ -226,6 +244,29 @@ try:
             st.info("Source status view is unavailable.")
         else:
             st.dataframe(source_status_df, use_container_width=True, hide_index=True)
+
+    with st.expander("Adjustment Factors and Age Overlay"):
+        st.caption("Shared factor settings used by the staged notebooks and the local workbench.")
+        st.dataframe(ADJUSTMENT_REFERENCE_DF, use_container_width=True, hide_index=True)
+        if adjustments_df.empty:
+            st.info("No municipio adjustment output is currently loaded into the local DuckDB workbench.")
+        else:
+            adjustment_columns = [
+                "municipio",
+                "child_rate",
+                "elderly_65_plus_rate",
+                "score_age_vulnerability",
+                "age_adjustment_points",
+                "vulnerability_score_base",
+                "vulnerability_score_adjusted",
+                "adjustment_config_version",
+            ]
+            adjustment_columns = [column for column in adjustment_columns if column in adjustments_df.columns]
+            st.dataframe(
+                adjustments_df[adjustment_columns],
+                use_container_width=True,
+                hide_index=True,
+            )
 finally:
     if con is not None:
         con.close()

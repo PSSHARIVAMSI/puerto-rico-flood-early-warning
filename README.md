@@ -96,6 +96,17 @@ For a docs-only breakdown, see `docs/README.md`.
 - Current automation focuses on source discovery, staging-folder setup, support for `.zip` / `.gdb` / `.img` local inputs, and land-cover profile auto-detection.
 - Intended outputs: `outputs/index_pipeline/15_terrain/municipio_terrain_features.{csv,parquet,geojson}` plus run metadata and a local data dictionary.
 
+## Social Adjustment Factors v1
+
+- `config/social_adjustments_v1.yaml` versions optional social-adjustment settings. The current default-on overlay adds age-sensitive adjustment points using children under 5 and adults 65+.
+- `scripts/factors/social_adjustments.py` is the shared background module used by canonical notebooks and the local workbench.
+- `JupyterNotebooks/census-risk-features-pr.ipynb` now pulls the required ACS age fields into the canonical census feature outputs instead of relying on a detached notebook copy.
+- `JupyterNotebooks/index_pipeline/02_feature_engineering/10_build_exposure_vulnerability_features.ipynb` applies the configured overlay and writes:
+  - `JupyterNotebooks/outputs/index_pipeline/10_features/municipio_exposure_vulnerability_features.csv`
+  - `JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv`
+  - `JupyterNotebooks/outputs/index_pipeline/10_features/adjustment_factor_reference.csv`
+- The local workbench surfaces the same factor reference and municipio adjustment outputs through DuckDB so the adjustment logic is inspectable outside the notebooks.
+
 ## PR Hazard and Readiness Analysis Workbench (Local-Only Prototype)
 
 ### Current State
@@ -242,25 +253,31 @@ This section documents the implemented formulas used in the staged pipeline at `
 - **Use:** `02_feature_engineering/10_build_exposure_vulnerability_features.ipynb`.
 - **Outcome:** `vulnerability_score` used directly in risk and priority calculations.
 
-8. **Resilience baseline proxy**
+8. **Optional age adjustment overlay**
+- **Formula:** `score_age_vulnerability = 0.4*score_child_vulnerability + 0.6*score_elderly_vulnerability`; `age_adjustment_points = score_age_vulnerability/100 * 12`; `vulnerability_score_adjusted = clip(vulnerability_score_base + age_adjustment_points, 0, 100)`
+- **Rationale:** Add an explainable overlay for age-sensitive populations without rewriting the core staged scoring architecture.
+- **Use:** `config/social_adjustments_v1.yaml` plus `scripts/factors/social_adjustments.py`, applied in `02_feature_engineering/10_build_exposure_vulnerability_features.ipynb`.
+- **Outcome:** Transparent base-vs-adjusted vulnerability fields and a separate municipio adjustment table.
+
+9. **Resilience baseline proxy**
 - **Formula:** `resilience_capacity_score = 0.45*income_capacity_score + 0.30*(100 - transport_constraint_score) + 0.25*(100 - housing_fragility_score)`
 - **Rationale:** Estimate local capacity to absorb and recover from disruption.
 - **Use:** `02_feature_engineering/10_build_exposure_vulnerability_features.ipynb`.
 - **Outcome:** `resilience_capacity_score` feeding `resilience_index`, readiness, and recovery formulas.
 
-9. **Municipio flood aggregation (distance-weighted + local override)**
+10. **Municipio flood aggregation (distance-weighted + local override)**
 - **Formula:** `w = exp(-distance_km / 25.0)`; `weighted_flood = weighted_average(flood_hazard_final, w)`; `flood_hazard_muni = max(weighted_flood, local_max_within_12km, nws_global_alert_score)`
 - **Rationale:** Blend nearby station influence while preserving worst-case local conditions and active alerts.
 - **Use:** `02_feature_engineering/20_build_municipio_hazard_features.ipynb`.
 - **Outcome:** `flood_hazard_muni` per municipio.
 
-10. **Earthquake municipio hazard proxy**
+11. **Earthquake municipio hazard proxy**
 - **Formula:** `depth_factor = 1 / (1 + depth_km/70)`; `recency_factor = exp(-age_hours/168)`; `intensity_raw = magnitude / log1p(distance_km) * depth_factor * recency_factor`; `earthquake_hazard_score = robust_to_0_100(intensity_raw)`
 - **Rationale:** Prioritize stronger, closer, shallower, and more recent events.
 - **Use:** `02_feature_engineering/20_build_municipio_hazard_features.ipynb`.
 - **Outcome:** `earthquake_hazard_score`; then `hazard_combined = max(flood_hazard_muni, earthquake_hazard_score)`.
 
-11. **Risk index (multiplicative core)**
+12. **Risk index (multiplicative core)**
 - **Formula:** `risk_index_raw = (hazard_combined/100) * (exposure_score/100) * (vulnerability_score/100) * 100`
 - **Rationale:** High risk emerges when hazard, exposure, and vulnerability are jointly elevated.
 - **Use:** `03_scoring/30_score_operational_indices.ipynb`.

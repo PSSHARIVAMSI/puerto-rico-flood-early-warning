@@ -12,7 +12,7 @@
 - Which current outputs should be treated as the long-term canonical curated inputs for future database loading?
 - Should future baseline map views move from centroid-style latitude/longitude summaries to polygon-aware geospatial layers?
 - Should a later iteration add a stronger dependency/packaging model for the entire repo instead of only this local workbench?
-- Which additional scoring-support outputs should be promoted next into the baseline schema: age, transport/no-vehicle, housing fragility, or other social indicators?
+- Which additional scoring-support outputs should be promoted next into the baseline schema after the age overlay: transport/no-vehicle, housing fragility, income capacity, or other social indicators?
 
 ## Known Gaps
 
