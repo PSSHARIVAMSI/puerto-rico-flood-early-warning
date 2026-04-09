@@ -96,6 +96,26 @@ def _make_temp_repo(tmp_path: Path) -> Path:
                 "nws_global_alert_score": 60.0,
                 "flood_hazard_final": 60.0,
                 "catalog_pull_utc": "2026-03-26T20:00:10Z",
+            },
+            {
+                "station_id": "9757426",
+                "station_name": "Ponce",
+                "shefcode": "PNCP4",
+                "lat": 17.97,
+                "lon": -66.62,
+                "latest_time_utc": "2026-03-26T20:00:00Z",
+                "latest_water_level": 0.4,
+                "rise_rate_per_hour": 0.2,
+                "minor": 1.0,
+                "moderate": 1.5,
+                "major": 2.0,
+                "exceed_ratio": 0.1,
+                "exceed_score": 10.0,
+                "rise_score": 20.0,
+                "sensor_hazard_score": 15.0,
+                "nws_global_alert_score": 60.0,
+                "flood_hazard_final": 60.0,
+                "catalog_pull_utc": "2026-03-26T20:00:10Z",
             }
         ],
     )
@@ -218,6 +238,21 @@ def _make_temp_repo(tmp_path: Path) -> Path:
                 "obs_count": 10,
                 "peak_value": 0.58,
                 "mean_value": 0.28,
+            },
+            {
+                "station_id": "9759394",
+                "station_name": "Mayaguez",
+                "latest_time_utc": "2026-03-26T20:00:00Z",
+                "latest_value": 0.18,
+                "latest_quality": "p",
+                "lat": 18.22,
+                "lon": -67.16,
+                "minor": 9.84,
+                "moderate": None,
+                "major": None,
+                "obs_count": 12,
+                "peak_value": 0.47,
+                "mean_value": 0.25,
             }
         ],
     )
@@ -270,6 +305,14 @@ def test_build_duckdb_baseline_from_curated_outputs(tmp_path: Path) -> None:
     assert float(factor_row[1]) == 61.5
     assert float(factor_row[2]) == 48.0
     assert float(factor_row[3]) == 32.0
+    station_rows = con.execute(
+        "SELECT station_id, telemetry_source_type FROM vw_station_water_summary ORDER BY station_id"
+    ).fetchall()
+    assert station_rows == [
+        ("9755371", "Both NOAA telemetry paths"),
+        ("9757426", "Flood hazard feed"),
+        ("9759394", "NOAA water-level feed"),
+    ]
     con.close()
 
 

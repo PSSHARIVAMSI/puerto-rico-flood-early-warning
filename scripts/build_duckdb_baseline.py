@@ -634,22 +634,44 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
         """
         CREATE OR REPLACE VIEW vw_station_water_summary AS
         SELECT
-            fs.station_id,
+            COALESCE(CAST(fs.station_id AS VARCHAR), CAST(ns.station_id AS VARCHAR)) AS station_id,
             COALESCE(ns.station_name, fs.station_name) AS station_name,
             fs.shefcode,
             COALESCE(ns.lat, fs.lat) AS latitude,
             COALESCE(ns.lon, fs.lon) AS longitude,
-            fs.latest_time_utc,
+            COALESCE(fs.latest_time_utc, ns.latest_time_utc) AS latest_time_utc,
+            fs.latest_time_utc AS flood_latest_time_utc,
+            ns.latest_time_utc AS noaa_latest_time_utc,
             fs.latest_water_level,
             fs.rise_rate_per_hour,
+            fs.sensor_hazard_score,
             fs.flood_hazard_final,
+            COALESCE(fs.flood_hazard_final, fs.sensor_hazard_score) AS telemetry_index,
             fs.nws_global_alert_score,
             ns.obs_count,
             ns.peak_value,
             ns.mean_value,
-            ns.latest_value AS noaa_latest_value
+            ns.latest_value AS noaa_latest_value,
+            ns.latest_quality,
+            CASE
+                WHEN fs.station_id IS NOT NULL AND ns.station_id IS NOT NULL THEN 'Both NOAA telemetry paths'
+                WHEN fs.station_id IS NOT NULL THEN 'Flood hazard feed'
+                WHEN ns.station_id IS NOT NULL THEN 'NOAA water-level feed'
+                ELSE 'Unknown telemetry source'
+            END AS telemetry_source_type,
+            CASE
+                WHEN fs.station_id IS NOT NULL AND ns.station_id IS NOT NULL THEN 'both_noaa_paths'
+                WHEN fs.station_id IS NOT NULL THEN 'flood_hazard_feed'
+                WHEN ns.station_id IS NOT NULL THEN 'noaa_water_level_feed'
+                ELSE 'unknown'
+            END AS telemetry_source_key,
+            CASE
+                WHEN fs.station_id IS NOT NULL AND ns.station_id IS NOT NULL THEN 2
+                WHEN fs.station_id IS NOT NULL OR ns.station_id IS NOT NULL THEN 1
+                ELSE 0
+            END AS telemetry_source_count
         FROM baseline_flood_station_latest AS fs
-        LEFT JOIN baseline_noaa_station_summary AS ns
+        FULL OUTER JOIN baseline_noaa_station_summary AS ns
             ON CAST(fs.station_id AS VARCHAR) = CAST(ns.station_id AS VARCHAR)
         """
     )
