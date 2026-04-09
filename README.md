@@ -165,6 +165,7 @@ This workbench is not:
 - Sample SQL: `sql/duckdb_baseline_queries.sql`
 - Assumptions and open questions: `docs/planning/duckdb_streamlit_baseline_notes.md`
 - The local workbench now surfaces stage-10 vulnerability-factor breakdowns, age-adjustment outputs, and terrain-sidecar review tables so metric definitions can be inspected outside the notebooks.
+- The map view now layers municipio adjusted-priority dots with telemetry station dots colored by source/API type, with hoverable index details and an in-app legend.
 
 Current baseline ingestion targets the most stable local curated outputs currently available:
 
