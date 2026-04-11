@@ -23,6 +23,10 @@ except ImportError as exc:  # pragma: no cover - friendly runtime guard
     ) from exc
 
 
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
 def find_repo_root(start: Path | None = None) -> Path:
     probe = (start or Path.cwd()).resolve()
     for candidate in [probe, *probe.parents]:
@@ -65,6 +69,10 @@ def ensure_columns(frame: pd.DataFrame, expected_columns: list[str]) -> pd.DataF
             frame[column] = pd.NA
     return frame
 
+
+# ---------------------------------------------------------------------------
+# Transform functions — one per source
+# ---------------------------------------------------------------------------
 
 def transform_municipio_indices(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.copy()
@@ -199,51 +207,6 @@ def transform_terrain_features(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def transform_exposure_vulnerability_features(frame: pd.DataFrame) -> pd.DataFrame:
-    frame = frame.copy()
-    if "municipio_slug" not in frame.columns:
-        if "municipio_key" in frame.columns:
-            frame["municipio_slug"] = frame["municipio_key"].map(slugify)
-        elif "municipio" in frame.columns:
-            frame["municipio_slug"] = frame["municipio"].map(slugify)
-        else:
-            frame["municipio_slug"] = pd.NA
-    return ensure_columns(
-        frame,
-        [
-            "municipio",
-            "municipio_key",
-            "municipio_slug",
-            "latitude",
-            "longitude",
-            "population",
-            "median_income",
-            "poverty_rate",
-            "no_vehicle_rate",
-            "vacancy_rate",
-            "child_under_5_population",
-            "elderly_65_plus_population",
-            "child_rate",
-            "elderly_65_plus_rate",
-            "exposure_score",
-            "vulnerability_score_base",
-            "vulnerability_score_adjusted",
-            "vulnerability_score",
-            "resilience_capacity_score",
-            "poverty_score",
-            "transport_constraint_score",
-            "housing_fragility_score",
-            "income_capacity_score",
-            "score_child_vulnerability",
-            "score_elderly_vulnerability",
-            "score_age_vulnerability",
-            "age_adjustment_points",
-            "age_adjustment_enabled",
-            "adjustment_config_version",
-        ],
-    )
-
-
 def transform_municipio_adjustment_factors(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.copy()
     if "municipio_slug" not in frame.columns:
@@ -296,6 +259,72 @@ def transform_noaa_station_summary(frame: pd.DataFrame) -> pd.DataFrame:
         ],
     )
 
+
+def transform_exposure_vulnerability(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = frame.copy()
+    if "municipio" in frame.columns:
+        frame["municipio_slug"] = frame["municipio"].map(slugify)
+    elif "municipio_key" in frame.columns:
+        frame["municipio_slug"] = frame["municipio_key"].map(slugify)
+    return ensure_columns(
+        frame,
+        [
+            "municipio",
+            "municipio_key",
+            "municipio_slug",
+            "latitude",
+            "longitude",
+            "population",
+            "median_income",
+            "poverty_rate",
+            "no_vehicle_rate",
+            "vacancy_rate",
+            "exposure_score",
+            "vulnerability_score",
+            "resilience_capacity_score",
+            "poverty_score",
+            "transport_constraint_score",
+            "housing_fragility_score",
+            "income_capacity_score",
+        ],
+    )
+
+
+def transform_hazard_features(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = frame.copy()
+    if "municipio" in frame.columns:
+        frame["municipio_slug"] = frame["municipio"].map(slugify)
+    elif "municipio_key" in frame.columns:
+        frame["municipio_slug"] = frame["municipio_key"].map(slugify)
+    return ensure_columns(
+        frame,
+        [
+            "municipio",
+            "municipio_key",
+            "municipio_slug",
+            "latitude",
+            "longitude",
+            "flood_hazard_weighted",
+            "flood_hazard_local_max",
+            "nws_global_alert_score",
+            "flood_hazard_muni",
+            "earthquake_raw",
+            "supporting_station_count",
+            "nearby_station_count",
+            "earthquake_hazard_score",
+            "hazard_combined",
+            "noaa_latest_obs_utc",
+        ],
+    )
+
+
+def transform_validation_metrics(frame: pd.DataFrame) -> pd.DataFrame:
+    return ensure_columns(frame.copy(), ["metric", "value"])
+
+
+# ---------------------------------------------------------------------------
+# Empty schema registry — guarantees consistent columns when source is missing
+# ---------------------------------------------------------------------------
 
 EMPTY_SCHEMAS: dict[str, dict[str, str]] = {
     "baseline_municipio_indices": {
@@ -390,37 +419,6 @@ EMPTY_SCHEMAS: dict[str, dict[str, str]] = {
         "config_version": "string",
         "run_timestamp_utc": "string",
     },
-    "baseline_exposure_vulnerability_features": {
-        "municipio": "string",
-        "municipio_key": "string",
-        "municipio_slug": "string",
-        "latitude": "float64",
-        "longitude": "float64",
-        "population": "float64",
-        "median_income": "float64",
-        "poverty_rate": "float64",
-        "no_vehicle_rate": "float64",
-        "vacancy_rate": "float64",
-        "child_under_5_population": "float64",
-        "elderly_65_plus_population": "float64",
-        "child_rate": "float64",
-        "elderly_65_plus_rate": "float64",
-        "exposure_score": "float64",
-        "vulnerability_score_base": "float64",
-        "vulnerability_score_adjusted": "float64",
-        "vulnerability_score": "float64",
-        "resilience_capacity_score": "float64",
-        "poverty_score": "float64",
-        "transport_constraint_score": "float64",
-        "housing_fragility_score": "float64",
-        "income_capacity_score": "float64",
-        "score_child_vulnerability": "float64",
-        "score_elderly_vulnerability": "float64",
-        "score_age_vulnerability": "float64",
-        "age_adjustment_points": "float64",
-        "age_adjustment_enabled": "boolean",
-        "adjustment_config_version": "string",
-    },
     "baseline_municipio_adjustment_factors": {
         "municipio": "string",
         "municipio_key": "string",
@@ -454,6 +452,46 @@ EMPTY_SCHEMAS: dict[str, dict[str, str]] = {
         "peak_value": "float64",
         "mean_value": "float64",
     },
+    "baseline_exposure_vulnerability": {
+        "municipio": "string",
+        "municipio_key": "string",
+        "municipio_slug": "string",
+        "latitude": "float64",
+        "longitude": "float64",
+        "population": "float64",
+        "median_income": "float64",
+        "poverty_rate": "float64",
+        "no_vehicle_rate": "float64",
+        "vacancy_rate": "float64",
+        "exposure_score": "float64",
+        "vulnerability_score": "float64",
+        "resilience_capacity_score": "float64",
+        "poverty_score": "float64",
+        "transport_constraint_score": "float64",
+        "housing_fragility_score": "float64",
+        "income_capacity_score": "float64",
+    },
+    "baseline_hazard_features": {
+        "municipio": "string",
+        "municipio_key": "string",
+        "municipio_slug": "string",
+        "latitude": "float64",
+        "longitude": "float64",
+        "flood_hazard_weighted": "float64",
+        "flood_hazard_local_max": "float64",
+        "nws_global_alert_score": "float64",
+        "flood_hazard_muni": "float64",
+        "earthquake_raw": "float64",
+        "supporting_station_count": "Int64",
+        "nearby_station_count": "Int64",
+        "earthquake_hazard_score": "float64",
+        "hazard_combined": "float64",
+        "noaa_latest_obs_utc": "string",
+    },
+    "baseline_validation_metrics": {
+        "metric": "string",
+        "value": "float64",
+    },
 }
 
 
@@ -461,6 +499,10 @@ def empty_frame(schema_name: str) -> pd.DataFrame:
     schema = EMPTY_SCHEMAS[schema_name]
     return pd.DataFrame({column: pd.Series(dtype=dtype) for column, dtype in schema.items()})
 
+
+# ---------------------------------------------------------------------------
+# Source registry
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class BaselineSource:
@@ -474,11 +516,15 @@ class BaselineSource:
 
 
 BASELINE_SOURCES: list[BaselineSource] = [
+    # ── Core scored indices ─────────────────────────────────────────────────
     BaselineSource(
         name="municipio_indices",
         table_name="baseline_municipio_indices",
         description="Current municipio-level scored outputs from the staged index pipeline.",
-        candidates=["JupyterNotebooks/outputs/index_pipeline/30_scoring/municipio_indices_scored.csv"],
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/30_scoring/municipio_indices_scored.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/30_scoring/municipio_indices_scored.csv",
+        ],
         file_type="csv",
         role="load_table",
         transform=transform_municipio_indices,
@@ -487,16 +533,48 @@ BASELINE_SOURCES: list[BaselineSource] = [
         name="priority_actions",
         table_name="baseline_priority_actions",
         description="Current ranked municipio action recommendations for operational review.",
-        candidates=["JupyterNotebooks/outputs/index_pipeline/50_products/priority_actions.csv"],
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/50_products/priority_actions.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/50_products/priority_actions.csv",
+        ],
         file_type="csv",
         role="load_table",
         transform=transform_priority_actions,
     ),
+    # ── Feature engineering outputs ─────────────────────────────────────────
+    BaselineSource(
+        name="exposure_vulnerability",
+        table_name="baseline_exposure_vulnerability",
+        description="Municipio-level exposure and vulnerability component features (census-derived).",
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/10_features/municipio_exposure_vulnerability_features.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/10_features/municipio_exposure_vulnerability_features.csv",
+        ],
+        file_type="csv",
+        role="load_table",
+        transform=transform_exposure_vulnerability,
+    ),
+    BaselineSource(
+        name="hazard_features",
+        table_name="baseline_hazard_features",
+        description="Municipio-level hazard component features (flood + earthquake signals).",
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/20_features/municipio_hazard_features.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/20_features/municipio_hazard_features.csv",
+        ],
+        file_type="csv",
+        role="load_table",
+        transform=transform_hazard_features,
+    ),
+    # ── Live feed outputs ───────────────────────────────────────────────────
     BaselineSource(
         name="flood_station_latest",
         table_name="baseline_flood_station_latest",
         description="Latest station-level flood feature outputs from the ingest stage.",
-        candidates=["JupyterNotebooks/outputs/index_pipeline/01_ingest/flood_station_latest_features.csv"],
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/01_ingest/flood_station_latest_features.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/01_ingest/flood_station_latest_features.csv",
+        ],
         file_type="csv",
         role="load_table",
         transform=transform_flood_station_latest,
@@ -505,11 +583,15 @@ BASELINE_SOURCES: list[BaselineSource] = [
         name="nws_alerts_enriched",
         table_name="baseline_nws_alerts",
         description="Current enriched NWS alert outputs suitable for alert summary views.",
-        candidates=["JupyterNotebooks/outputs/index_pipeline/01_ingest/nws_alerts_enriched.csv"],
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/01_ingest/nws_alerts_enriched.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/01_ingest/nws_alerts_enriched.csv",
+        ],
         file_type="csv",
         role="load_table",
         transform=transform_nws_alerts,
     ),
+    # ── Terrain ─────────────────────────────────────────────────────────────
     BaselineSource(
         name="terrain_features",
         table_name="baseline_terrain_features",
@@ -522,24 +604,7 @@ BASELINE_SOURCES: list[BaselineSource] = [
         role="load_table",
         transform=transform_terrain_features,
     ),
-    BaselineSource(
-        name="exposure_vulnerability_features",
-        table_name="baseline_exposure_vulnerability_features",
-        description="Stage 10 municipio exposure, vulnerability, and resilience-factor outputs used for factor transparency.",
-        candidates=["JupyterNotebooks/outputs/index_pipeline/10_features/municipio_exposure_vulnerability_features.csv"],
-        file_type="csv",
-        role="load_table",
-        transform=transform_exposure_vulnerability_features,
-    ),
-    BaselineSource(
-        name="municipio_adjustment_factors",
-        table_name="baseline_municipio_adjustment_factors",
-        description="Municipio-level optional adjustment outputs, including age-based overlays, from stage 10.",
-        candidates=["JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv"],
-        file_type="csv",
-        role="load_table",
-        transform=transform_municipio_adjustment_factors,
-    ),
+    # ── NOAA water-level summary ─────────────────────────────────────────────
     BaselineSource(
         name="noaa_station_summary",
         table_name="baseline_noaa_station_summary",
@@ -552,6 +617,33 @@ BASELINE_SOURCES: list[BaselineSource] = [
         role="load_table",
         transform=transform_noaa_station_summary,
     ),
+    # ── Municipio adjustment factors ─────────────────────────────────────────
+    BaselineSource(
+        name="municipio_adjustment_factors",
+        table_name="baseline_municipio_adjustment_factors",
+        description="Municipio-level age-based vulnerability adjustment outputs from stage 10 feature engineering.",
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv",
+        ],
+        file_type="csv",
+        role="load_table",
+        transform=transform_municipio_adjustment_factors,
+    ),
+    # ── Validation metrics ───────────────────────────────────────────────────
+    BaselineSource(
+        name="validation_metrics",
+        table_name="baseline_validation_metrics",
+        description="Pipeline validation metrics from the 40_validation stage.",
+        candidates=[
+            "JupyterNotebooks/outputs/index_pipeline/40_validation/validation_metrics.csv",
+            "JupyterNotebooks/JupyterNotebooks/outputs/index_pipeline/40_validation/validation_metrics.csv",
+        ],
+        file_type="csv",
+        role="load_table",
+        transform=transform_validation_metrics,
+    ),
+    # ── Inventory-only (no DuckDB table, tracked for future use) ─────────────
     BaselineSource(
         name="terrain_geojson",
         table_name=None,
@@ -574,13 +666,22 @@ BASELINE_SOURCES: list[BaselineSource] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# DuckDB table writer
+# ---------------------------------------------------------------------------
+
 def write_table(con: duckdb.DuckDBPyConnection, table_name: str, frame: pd.DataFrame) -> None:
     con.register("incoming_frame", frame)
     con.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM incoming_frame")
     con.unregister("incoming_frame")
 
 
+# ---------------------------------------------------------------------------
+# Analytical views
+# ---------------------------------------------------------------------------
+
 def create_views(con: duckdb.DuckDBPyConnection) -> None:
+    # ── 1. Full municipio risk summary (primary dashboard view) ────────────
     con.execute(
         """
         CREATE OR REPLACE VIEW vw_municipio_risk_summary AS
@@ -588,21 +689,19 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             mi.municipio,
             mi.municipio_slug,
             mi.phase,
-            COALESCE(pa.priority_band, mi.priority_band) AS priority_band,
+            COALESCE(pa.priority_band, mi.priority_band)    AS priority_band,
             mi.priority_index_conf_adj,
+            mi.priority_index,
             mi.hazard_combined,
             mi.flood_hazard_muni,
             mi.earthquake_hazard_score,
             mi.exposure_score,
             mi.vulnerability_score,
+            mi.resilience_index,
             mi.response_readiness_index,
             mi.recovery_capacity_index,
+            mi.risk_index_raw,
             mi.confidence_score,
-            evf.poverty_score,
-            evf.transport_constraint_score,
-            evf.housing_fragility_score,
-            evf.income_capacity_score,
-            evf.resilience_capacity_score,
             maf.vulnerability_score_base,
             maf.vulnerability_score_adjusted,
             maf.score_age_vulnerability,
@@ -611,7 +710,7 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             maf.adjustment_config_version,
             mi.latitude,
             mi.longitude,
-            pa.rank AS priority_rank,
+            pa.rank                                          AS priority_rank,
             pa.recommended_actions,
             tf.elevation_mean,
             tf.slope_mean,
@@ -624,57 +723,136 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
             ON mi.municipio_slug = pa.municipio_slug
         LEFT JOIN baseline_terrain_features AS tf
             ON mi.municipio_slug = tf.municipio_slug
-        LEFT JOIN baseline_exposure_vulnerability_features AS evf
-            ON mi.municipio_slug = evf.municipio_slug
         LEFT JOIN baseline_municipio_adjustment_factors AS maf
             ON mi.municipio_slug = maf.municipio_slug
         """
     )
+
+    # ── 2. Index component breakdown (radar / spider chart feed) ───────────
+    con.execute(
+        """
+        CREATE OR REPLACE VIEW vw_index_components AS
+        SELECT
+            mi.municipio,
+            mi.municipio_slug,
+            mi.priority_index_conf_adj,
+            mi.priority_band,
+            -- Hazard axis
+            mi.hazard_combined,
+            mi.flood_hazard_muni,
+            mi.earthquake_hazard_score,
+            -- Exposure axis
+            mi.exposure_score,
+            -- Vulnerability axis
+            mi.vulnerability_score,
+            ev.poverty_score,
+            ev.transport_constraint_score,
+            ev.housing_fragility_score,
+            -- Resilience / readiness axis
+            mi.resilience_index,
+            mi.response_readiness_index,
+            mi.recovery_capacity_index,
+            ev.income_capacity_score,
+            -- Population context
+            ev.population,
+            ev.median_income,
+            ev.poverty_rate,
+            ev.no_vehicle_rate,
+            ev.vacancy_rate
+        FROM baseline_municipio_indices AS mi
+        LEFT JOIN baseline_exposure_vulnerability AS ev
+            ON mi.municipio_slug = ev.municipio_slug
+        """
+    )
+
+    # ── 3. Hazard breakdown view ────────────────────────────────────────────
+    con.execute(
+        """
+        CREATE OR REPLACE VIEW vw_hazard_breakdown AS
+        SELECT
+            hf.municipio,
+            hf.municipio_slug,
+            hf.flood_hazard_weighted,
+            hf.flood_hazard_muni,
+            hf.nws_global_alert_score,
+            hf.earthquake_raw,
+            hf.earthquake_hazard_score,
+            hf.hazard_combined,
+            hf.supporting_station_count,
+            hf.nearby_station_count,
+            hf.noaa_latest_obs_utc,
+            mi.priority_index_conf_adj,
+            mi.priority_band,
+            mi.latitude,
+            mi.longitude
+        FROM baseline_hazard_features AS hf
+        LEFT JOIN baseline_municipio_indices AS mi
+            ON hf.municipio_slug = mi.municipio_slug
+        """
+    )
+
+    # ── 4. Vulnerability component breakdown view ───────────────────────────
+    con.execute(
+        """
+        CREATE OR REPLACE VIEW vw_vulnerability_breakdown AS
+        SELECT
+            ev.municipio,
+            ev.municipio_slug,
+            ev.population,
+            ev.median_income,
+            ev.poverty_rate,
+            ev.no_vehicle_rate,
+            ev.vacancy_rate,
+            ev.poverty_score,
+            ev.transport_constraint_score,
+            ev.housing_fragility_score,
+            ev.income_capacity_score,
+            ev.vulnerability_score,
+            ev.resilience_capacity_score,
+            ev.exposure_score,
+            mi.priority_index_conf_adj,
+            mi.priority_band,
+            mi.hazard_combined,
+            mi.latitude,
+            mi.longitude
+        FROM baseline_exposure_vulnerability AS ev
+        LEFT JOIN baseline_municipio_indices AS mi
+            ON ev.municipio_slug = mi.municipio_slug
+        """
+    )
+
+    # ── 5. Station + NOAA merged water-level view ──────────────────────────
     con.execute(
         """
         CREATE OR REPLACE VIEW vw_station_water_summary AS
         SELECT
-            COALESCE(CAST(fs.station_id AS VARCHAR), CAST(ns.station_id AS VARCHAR)) AS station_id,
+            fs.station_id,
             COALESCE(ns.station_name, fs.station_name) AS station_name,
             fs.shefcode,
-            COALESCE(ns.lat, fs.lat) AS latitude,
-            COALESCE(ns.lon, fs.lon) AS longitude,
-            COALESCE(fs.latest_time_utc, ns.latest_time_utc) AS latest_time_utc,
-            fs.latest_time_utc AS flood_latest_time_utc,
-            ns.latest_time_utc AS noaa_latest_time_utc,
+            COALESCE(ns.lat, fs.lat)                   AS latitude,
+            COALESCE(ns.lon, fs.lon)                   AS longitude,
+            fs.latest_time_utc,
             fs.latest_water_level,
             fs.rise_rate_per_hour,
-            fs.sensor_hazard_score,
             fs.flood_hazard_final,
-            COALESCE(fs.flood_hazard_final, fs.sensor_hazard_score) AS telemetry_index,
+            fs.sensor_hazard_score,
+            fs.exceed_score,
+            fs.rise_score,
             fs.nws_global_alert_score,
+            fs.minor,
+            fs.moderate,
+            fs.major,
             ns.obs_count,
             ns.peak_value,
             ns.mean_value,
-            ns.latest_value AS noaa_latest_value,
-            ns.latest_quality,
-            CASE
-                WHEN fs.station_id IS NOT NULL AND ns.station_id IS NOT NULL THEN 'Both NOAA telemetry paths'
-                WHEN fs.station_id IS NOT NULL THEN 'Flood hazard feed'
-                WHEN ns.station_id IS NOT NULL THEN 'NOAA water-level feed'
-                ELSE 'Unknown telemetry source'
-            END AS telemetry_source_type,
-            CASE
-                WHEN fs.station_id IS NOT NULL AND ns.station_id IS NOT NULL THEN 'both_noaa_paths'
-                WHEN fs.station_id IS NOT NULL THEN 'flood_hazard_feed'
-                WHEN ns.station_id IS NOT NULL THEN 'noaa_water_level_feed'
-                ELSE 'unknown'
-            END AS telemetry_source_key,
-            CASE
-                WHEN fs.station_id IS NOT NULL AND ns.station_id IS NOT NULL THEN 2
-                WHEN fs.station_id IS NOT NULL OR ns.station_id IS NOT NULL THEN 1
-                ELSE 0
-            END AS telemetry_source_count
+            ns.latest_value                            AS noaa_latest_value
         FROM baseline_flood_station_latest AS fs
-        FULL OUTER JOIN baseline_noaa_station_summary AS ns
+        LEFT JOIN baseline_noaa_station_summary AS ns
             ON CAST(fs.station_id AS VARCHAR) = CAST(ns.station_id AS VARCHAR)
         """
     )
+
+    # ── 6. Alerts summary view ─────────────────────────────────────────────
     con.execute(
         """
         CREATE OR REPLACE VIEW vw_alerts_summary AS
@@ -692,60 +870,68 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
         ORDER BY alert_score DESC NULLS LAST, sent DESC NULLS LAST
         """
     )
+
+    # ── 7. Terrain summary view ────────────────────────────────────────────
     con.execute(
         """
         CREATE OR REPLACE VIEW vw_terrain_summary AS
         SELECT
-            municipio_name,
-            municipio_slug,
-            elevation_mean,
-            slope_mean,
-            slope_p90,
-            local_relief,
-            wetness_proxy,
-            distance_to_stream_km,
-            coastal_inundation_flag,
-            soil_runoff_potential,
-            land_cover_runoff_modifier,
-            terrain_data_completeness,
-            terrain_confidence_score,
-            run_timestamp_utc
-        FROM baseline_terrain_features
+            tf.municipio_name,
+            tf.municipio_slug,
+            tf.elevation_mean,
+            tf.slope_mean,
+            tf.slope_p90,
+            tf.local_relief,
+            tf.wetness_proxy,
+            tf.distance_to_stream_km,
+            tf.coastal_inundation_flag,
+            tf.soil_runoff_potential,
+            tf.land_cover_runoff_modifier,
+            tf.terrain_data_completeness,
+            tf.terrain_confidence_score,
+            tf.run_timestamp_utc,
+            mi.priority_index_conf_adj,
+            mi.priority_band,
+            mi.hazard_combined
+        FROM baseline_terrain_features AS tf
+        LEFT JOIN baseline_municipio_indices AS mi
+            ON tf.municipio_slug = mi.municipio_slug
         """
     )
+
+    # ── 8. Priority ranking with score percentiles ────────────────────────
     con.execute(
         """
-        CREATE OR REPLACE VIEW vw_vulnerability_factor_summary AS
+        CREATE OR REPLACE VIEW vw_priority_ranking AS
         SELECT
             municipio,
-            municipio_key,
-            municipio_slug,
-            population,
-            median_income,
-            poverty_rate,
-            no_vehicle_rate,
-            vacancy_rate,
-            exposure_score,
-            vulnerability_score_base,
-            vulnerability_score_adjusted,
+            priority_band,
+            priority_index_conf_adj,
+            hazard_combined,
             vulnerability_score,
-            resilience_capacity_score,
-            poverty_score,
-            transport_constraint_score,
-            housing_fragility_score,
-            income_capacity_score,
-            child_rate,
-            elderly_65_plus_rate,
-            score_child_vulnerability,
-            score_elderly_vulnerability,
-            score_age_vulnerability,
-            age_adjustment_points,
-            age_adjustment_enabled,
-            adjustment_config_version
-        FROM baseline_exposure_vulnerability_features
-        ORDER BY vulnerability_score DESC NULLS LAST, municipio
+            response_readiness_index,
+            recovery_capacity_index,
+            confidence_score,
+            recommended_actions,
+            RANK() OVER (ORDER BY priority_index_conf_adj DESC) AS overall_rank,
+            ROUND(
+                100.0 * RANK() OVER (ORDER BY priority_index_conf_adj ASC)
+                / COUNT(*) OVER (), 1
+            ) AS priority_percentile,
+            ROUND(
+                100.0 * RANK() OVER (ORDER BY vulnerability_score DESC)
+                / COUNT(*) OVER (), 1
+            ) AS vulnerability_percentile,
+            ROUND(
+                100.0 * RANK() OVER (ORDER BY hazard_combined DESC)
+                / COUNT(*) OVER (), 1
+            ) AS hazard_percentile
+        FROM baseline_priority_actions
+        ORDER BY priority_index_conf_adj DESC
         """
     )
+
+    # ── 9. Vulnerability adjustments view (required by streamlit_app.py) ─────
     con.execute(
         """
         CREATE OR REPLACE VIEW vw_vulnerability_adjustments AS
@@ -770,6 +956,8 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
         ORDER BY age_adjustment_points DESC NULLS LAST, municipio
         """
     )
+
+    # ── 10. Baseline source status view ───────────────────────────────────
     con.execute(
         """
         CREATE OR REPLACE VIEW vw_baseline_source_status AS
@@ -784,15 +972,19 @@ def create_views(con: duckdb.DuckDBPyConnection) -> None:
         FROM baseline_source_inventory
         ORDER BY
             CASE status
-                WHEN 'loaded' THEN 1
+                WHEN 'loaded'         THEN 1
                 WHEN 'inventory_only' THEN 2
-                WHEN 'missing' THEN 3
+                WHEN 'missing'        THEN 3
                 ELSE 4
             END,
             name
         """
     )
 
+
+# ---------------------------------------------------------------------------
+# Main build function
+# ---------------------------------------------------------------------------
 
 def build_duckdb_baseline(repo_root: Path, db_path: Path) -> dict[str, object]:
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -814,7 +1006,7 @@ def build_duckdb_baseline(repo_root: Path, db_path: Path) -> dict[str, object]:
             }
 
             if chosen_path is None:
-                if source.table_name is not None:
+                if source.table_name is not None and source.table_name in EMPTY_SCHEMAS:
                     write_table(con, source.table_name, empty_frame(source.table_name))
                 inventory_rows.append(row)
                 continue
@@ -836,20 +1028,30 @@ def build_duckdb_baseline(repo_root: Path, db_path: Path) -> dict[str, object]:
         write_table(con, "baseline_source_inventory", inventory)
         create_views(con)
 
-    summary = {
-        "run_timestamp_utc": run_timestamp,
-        "db_path": str(db_path.relative_to(repo_root)),
-        "loaded_sources": [row["name"] for row in inventory_rows if row["status"] == "loaded"],
-        "missing_sources": [row["name"] for row in inventory_rows if row["status"] == "missing"],
-        "inventory_only_sources": [row["name"] for row in inventory_rows if row["status"] == "inventory_only"],
+    loaded   = [r["name"] for r in inventory_rows if r["status"] == "loaded"]
+    missing  = [r["name"] for r in inventory_rows if r["status"] == "missing"]
+    inv_only = [r["name"] for r in inventory_rows if r["status"] == "inventory_only"]
+
+    summary: dict[str, object] = {
+        "run_timestamp_utc":      run_timestamp,
+        "db_path":                str(db_path.relative_to(repo_root)),
+        "loaded_sources":         loaded,
+        "missing_sources":        missing,
+        "inventory_only_sources": inv_only,
     }
     summary_path = db_path.with_name("duckdb_baseline_build_summary.json")
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
     return summary
 
 
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build the local DuckDB workbench database from current curated outputs.")
+    parser = argparse.ArgumentParser(
+        description="Build a local DuckDB starter baseline from current curated outputs."
+    )
     parser.add_argument("--repo-root", default=None, help="Optional repo-root override.")
     parser.add_argument(
         "--db-path",
@@ -861,7 +1063,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    repo_root = find_repo_root(Path(args.repo_root).resolve()) if args.repo_root else find_repo_root()
+    repo_root = (
+        find_repo_root(Path(args.repo_root).resolve()) if args.repo_root else find_repo_root()
+    )
     db_path = (
         Path(args.db_path).resolve()
         if args.db_path
