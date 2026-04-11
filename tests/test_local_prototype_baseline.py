@@ -96,6 +96,26 @@ def _make_temp_repo(tmp_path: Path) -> Path:
                 "nws_global_alert_score": 60.0,
                 "flood_hazard_final": 60.0,
                 "catalog_pull_utc": "2026-03-26T20:00:10Z",
+            },
+            {
+                "station_id": "9757426",
+                "station_name": "Ponce",
+                "shefcode": "PNCP4",
+                "lat": 17.97,
+                "lon": -66.62,
+                "latest_time_utc": "2026-03-26T20:00:00Z",
+                "latest_water_level": 0.4,
+                "rise_rate_per_hour": 0.2,
+                "minor": 1.0,
+                "moderate": 1.5,
+                "major": 2.0,
+                "exceed_ratio": 0.1,
+                "exceed_score": 10.0,
+                "rise_score": 20.0,
+                "sensor_hazard_score": 15.0,
+                "nws_global_alert_score": 60.0,
+                "flood_hazard_final": 60.0,
+                "catalog_pull_utc": "2026-03-26T20:00:10Z",
             }
         ],
     )
@@ -144,6 +164,41 @@ def _make_temp_repo(tmp_path: Path) -> Path:
         ],
     )
     _write_csv(
+        repo_root / "JupyterNotebooks/outputs/index_pipeline/10_features/municipio_exposure_vulnerability_features.csv",
+        [
+            {
+                "municipio": "San Juan",
+                "municipio_key": "san_juan",
+                "latitude": 18.426281,
+                "longitude": -66.062495,
+                "population": 318441,
+                "median_income": 24500.0,
+                "poverty_rate": 0.41,
+                "no_vehicle_rate": 0.17,
+                "vacancy_rate": 0.12,
+                "child_under_5_population": 1200.0,
+                "elderly_65_plus_population": 3400.0,
+                "child_rate": 0.08,
+                "elderly_65_plus_rate": 0.22,
+                "exposure_score": 100.0,
+                "vulnerability_score_base": 58.8,
+                "vulnerability_score_adjusted": 67.1,
+                "vulnerability_score": 67.1,
+                "resilience_capacity_score": 42.3,
+                "poverty_score": 61.5,
+                "transport_constraint_score": 48.0,
+                "housing_fragility_score": 32.0,
+                "income_capacity_score": 55.0,
+                "score_child_vulnerability": 55.0,
+                "score_elderly_vulnerability": 78.0,
+                "score_age_vulnerability": 68.8,
+                "age_adjustment_points": 8.3,
+                "age_adjustment_enabled": True,
+                "adjustment_config_version": "1.0",
+            }
+        ],
+    )
+    _write_csv(
         repo_root / "JupyterNotebooks/outputs/index_pipeline/10_features/municipio_adjustment_factors.csv",
         [
             {
@@ -183,6 +238,21 @@ def _make_temp_repo(tmp_path: Path) -> Path:
                 "obs_count": 10,
                 "peak_value": 0.58,
                 "mean_value": 0.28,
+            },
+            {
+                "station_id": "9759394",
+                "station_name": "Mayaguez",
+                "latest_time_utc": "2026-03-26T20:00:00Z",
+                "latest_value": 0.18,
+                "latest_quality": "p",
+                "lat": 18.22,
+                "lon": -67.16,
+                "minor": 9.84,
+                "moderate": None,
+                "major": None,
+                "obs_count": 12,
+                "peak_value": 0.47,
+                "mean_value": 0.25,
             }
         ],
     )
@@ -214,6 +284,7 @@ def test_build_duckdb_baseline_from_curated_outputs(tmp_path: Path) -> None:
         "flood_station_latest",
         "nws_alerts_enriched",
         "terrain_features",
+        "exposure_vulnerability_features",
         "municipio_adjustment_factors",
         "noaa_station_summary",
     }
@@ -227,6 +298,21 @@ def test_build_duckdb_baseline_from_curated_outputs(tmp_path: Path) -> None:
     assert "Increase responder readiness" in top_row[1]
     assert float(top_row[2]) == 100.0
     assert float(top_row[3]) == 8.3
+    factor_row = con.execute(
+        "SELECT municipio, poverty_score, transport_constraint_score, housing_fragility_score FROM vw_vulnerability_factor_summary"
+    ).fetchone()
+    assert factor_row[0] == "San Juan"
+    assert float(factor_row[1]) == 61.5
+    assert float(factor_row[2]) == 48.0
+    assert float(factor_row[3]) == 32.0
+    station_rows = con.execute(
+        "SELECT station_id, telemetry_source_type FROM vw_station_water_summary ORDER BY station_id"
+    ).fetchall()
+    assert station_rows == [
+        ("9755371", "Both NOAA telemetry paths"),
+        ("9757426", "Flood hazard feed"),
+        ("9759394", "NOAA water-level feed"),
+    ]
     con.close()
 
 
